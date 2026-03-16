@@ -66,7 +66,10 @@ export const customerAPI = {
     address?: string;
   }) => api.post('/customer/bookings', data),
   getBookingTracking: (id: string) => api.get(`/customer/bookings/${id}/tracking`),
-  getNearbyAgents: () => api.get('/customer/agents/nearby'),
+  getNearbyAgents: (params?: { lat?: number; lng?: number; distance?: number; minRating?: number }) =>
+    api.get('/customer/agents/nearby', { params }),
+  getAgentProfile: (id: string) => api.get(`/customer/agents/${id}/profile`),
+  getBookingReviewStatus: (bookingId: string) => api.get(`/customer/bookings/${bookingId}/review-status`),
   submitReview: (data: {
     bookingId?: string;
     agentId?: string;

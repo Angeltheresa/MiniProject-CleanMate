@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { StatCard } from "@/components/StatCard";
 import { Calendar, CheckCircle, Clock, Wallet } from "lucide-react";
 import { customerAPI } from "@/lib/api";
 import { DashboardStats, Booking } from "@/types";
 
 export default function CustomerDashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>({ active: 0, completed: 0, pending: 0, totalSpent: 0 });
   const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,12 +77,12 @@ export default function CustomerDashboard() {
           </h3>
           <div className="grid grid-cols-2 gap-4">
             {[
-              { label: "Book Service", desc: "Start fresh today", color: "bg-[#1a2e1a]" },
-              { label: "Track Service", desc: "Real-time updates", color: "bg-[#97BC62]" },
-              { label: "View History", desc: "Past cleanings", color: "bg-white" },
-              { label: "Get Estimate", desc: "Plan your budget", color: "bg-slate-50" },
+              { label: "Book Service", desc: "Start fresh today", color: "bg-[#1a2e1a]", route: "/customer/book" },
+              { label: "Track Service", desc: "Real-time updates", color: "bg-[#97BC62]", route: "/customer/tracking" },
+              { label: "View History", desc: "Past cleanings", color: "bg-white", route: "/customer/history" },
+              { label: "Get Estimate", desc: "Plan your budget", color: "bg-slate-50", route: "/customer/estimator" },
             ].map((a) => (
-              <div key={a.label} className="group p-5 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer relative overflow-hidden">
+              <div key={a.label} onClick={() => navigate(a.route)} className="group p-5 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-white hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer relative overflow-hidden">
                 <div className={`absolute top-0 right-0 w-12 h-12 ${a.color} opacity-10 rounded-bl-[2rem]`} />
                 <p className="text-sm font-black text-[#1a2e1a] group-hover:text-[#97BC62] transition-colors">{a.label}</p>
                 <p className="text-[10px] text-[#1a2e1a]/40 font-bold mt-1">{a.desc}</p>

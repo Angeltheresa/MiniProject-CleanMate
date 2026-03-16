@@ -9,6 +9,31 @@ const router = Router();
 
 router.use(authenticate as any);
 
+const reverseGeocodeWithNominatim = async (lat: number, lng: number): Promise<string | null> => {
+  try {
+    const response = await axios.get('https://nominatim.openstreetmap.org/reverse', {
+      params: {
+        format: 'jsonv2',
+        lat,
+        lon: lng,
+        addressdetails: 1,
+      },
+      headers: {
+        'User-Agent': 'CleanMate/1.0 (support@cleanmate.local)',
+      },
+      timeout: 8000,
+    });
+
+    const displayName = response.data?.display_name;
+    if (typeof displayName === 'string' && displayName.trim()) {
+      return displayName;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 // POST /api/maps/geocode
 router.post('/geocode', async (req: any, res: any) => {
   try {
@@ -55,11 +80,25 @@ router.post('/geocode', async (req: any, res: any) => {
 // GET /api/maps/reverse-geocode
 router.get('/reverse-geocode', async (req: any, res: any) => {
   try {
-    const { lat, lng } = req.query;
+    const lat = parseFloat(req.query.lat as string);
+    const lng = parseFloat(req.query.lng as string);
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
 
+    if (isNaN(lat) || isNaN(lng)) {
+      res.status(400).json({ message: 'Invalid coordinates' });
+      return;
+    }
+
+    const fallbackCoordinates = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+
     if (!apiKey || apiKey === 'your_google_maps_api_key') {
-      res.json({ formatted_address: 'Bangalore, Karnataka, India (Mock)' });
+      const nominatimAddress = await reverseGeocodeWithNominatim(lat, lng);
+      if (nominatimAddress) {
+        res.json({ formatted_address: nominatimAddress, source: 'nominatim' });
+        return;
+      }
+
+      res.json({ formatted_address: fallbackCoordinates, source: 'fallback' });
       return;
     }
 
@@ -67,14 +106,37 @@ router.get('/reverse-geocode', async (req: any, res: any) => {
       `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`
     );
 
-    if (response.data.results.length === 0) {
-      res.status(404).json({ message: 'Location not found' });
+    const status = response.data?.status;
+    const results = response.data?.results || [];
+
+    if (status !== 'OK' || results.length === 0) {
+      // Graceful fallback so booking flow still works when provider quota/key fails.
+      const nominatimAddress = await reverseGeocodeWithNominatim(lat, lng);
+      if (nominatimAddress) {
+        res.json({ formatted_address: nominatimAddress, source: 'nominatim' });
+        return;
+      }
+
+      res.json({ formatted_address: fallbackCoordinates, source: 'fallback' });
       return;
     }
 
-    const formatted_address = response.data.results[0].formatted_address;
-    res.json({ formatted_address });
+    const formatted_address = results[0].formatted_address;
+    res.json({ formatted_address, source: 'google' });
   } catch (error: any) {
+    const lat = parseFloat(req.query.lat as string);
+    const lng = parseFloat(req.query.lng as string);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      const nominatimAddress = await reverseGeocodeWithNominatim(lat, lng);
+      if (nominatimAddress) {
+        res.json({ formatted_address: nominatimAddress, source: 'nominatim' });
+        return;
+      }
+
+      res.json({ formatted_address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`, source: 'fallback' });
+      return;
+    }
+
     res.status(500).json({ message: 'Reverse geocoding failed', error: error.message });
   }
 });

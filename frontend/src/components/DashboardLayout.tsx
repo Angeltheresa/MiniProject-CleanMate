@@ -1,9 +1,11 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Menu, X, Bell, ChevronDown, LogOut, User } from "lucide-react";
+import { Menu, X, Bell, ChevronDown, LogOut, User, MessageSquare, CheckCircle2 } from "lucide-react";
 import logo from "@/assets/logo.svg";
 import { Button } from "@/components/ui/button";
+import { io, Socket } from "socket.io-client";
+import { customerAPI, agentAPI } from "@/lib/api";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,15 +26,244 @@ interface DashboardLayoutProps {
   title: string;
 }
 
+type NotificationType = "chat" | "booking";
+
+interface NotificationItem {
+  id: string;
+  type: NotificationType;
+  title: string;
+  description: string;
+  targetPath: string;
+  bookingId?: string;
+  createdAt: string;
+  isRead: boolean;
+}
+
+const MAX_NOTIFICATIONS = 20;
+
 export function DashboardLayout({ children, sidebarItems, title }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const token = localStorage.getItem("cleanmate_token");
+
+  const unreadCount = useMemo(
+    () => notifications.filter((notification) => !notification.isRead).length,
+    [notifications]
+  );
+
+  // Track current path in a ref so socket handlers always read the latest value
+  // without needing to reconnect the socket on every navigation.
+  const locationPathRef = useRef(location.pathname);
+  useEffect(() => {
+    locationPathRef.current = location.pathname;
+  }, [location.pathname]);
+
+  const notificationStorageKey = useMemo(() => {
+    if (!user) return null;
+    const userId = user.id || (user as any)?._id;
+    return `cleanmate_notifications_${user.role}_${userId}`;
+  }, [user]);
+
+  const mergeNotifications = (current: NotificationItem[], incoming: NotificationItem[]) => {
+    const byId = new Map<string, NotificationItem>();
+
+    [...current, ...incoming].forEach((item) => {
+      const existing = byId.get(item.id);
+      if (!existing) {
+        byId.set(item.id, item);
+        return;
+      }
+
+      byId.set(item.id, {
+        ...existing,
+        ...item,
+        isRead: existing.isRead && item.isRead,
+      });
+    });
+
+    return Array.from(byId.values())
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, MAX_NOTIFICATIONS);
+  };
+
+  const upsertNotifications = (incoming: NotificationItem[] | ((prev: NotificationItem[]) => NotificationItem[])) => {
+    setNotifications((prev) => {
+      const next = typeof incoming === "function" ? incoming(prev) : mergeNotifications(prev, incoming);
+      if (notificationStorageKey) {
+        localStorage.setItem(notificationStorageKey, JSON.stringify(next));
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (!user || !token) return;
+
+    let socket: Socket | null = null;
+
+    if (notificationStorageKey) {
+      const storedNotifications = localStorage.getItem(notificationStorageKey);
+      if (storedNotifications) {
+        try {
+          setNotifications(JSON.parse(storedNotifications));
+        } catch {
+          setNotifications([]);
+        }
+      } else {
+        setNotifications([]);
+      }
+    }
+
+    const setupMessageNotifications = async () => {
+      try {
+        let response;
+        if (user.role === "customer") {
+          response = await customerAPI.getBookings();
+        } else if (user.role === "agent") {
+          response = await agentAPI.getRequests();
+        }
+
+        const activeChats = (response?.data || []).filter((b: any) =>
+          (user.role === "customer" && b.agentId && ["approved", "in-progress"].includes(b.status)) ||
+          (user.role === "agent" && ["approved", "in-progress"].includes(b.status) && b.customerId)
+        );
+
+        const bookingNotifications: NotificationItem[] = (response?.data || [])
+          .filter((b: any) => ["approved", "in-progress", "completed", "rejected"].includes(b.status))
+          .map((b: any) => {
+            const bookingId = b._id || b.id;
+            const statusTitle = b.status === "approved"
+              ? "Booking Approved"
+              : b.status === "in-progress"
+                ? "Service Started"
+                : b.status === "completed"
+                  ? "Service Completed"
+                  : "Booking Update";
+
+            const userTargetPath = user.role === "customer"
+              ? (b.status === "completed" || b.status === "rejected" ? "/customer/history" : `/customer/messages/${bookingId}`)
+              : "/agent/requests";
+
+            return {
+              id: `booking-${bookingId}-${b.status}`,
+              type: "booking" as const,
+              title: statusTitle,
+              description: `${b.serviceType} is currently ${b.status.replace("-", " ")}.`,
+              targetPath: userTargetPath,
+              bookingId,
+              createdAt: b.updatedAt || b.createdAt || new Date().toISOString(),
+              isRead: true,
+            };
+          });
+
+        upsertNotifications(bookingNotifications);
+
+        if (!activeChats.length) return;
+
+        socket = io(import.meta.env.VITE_SOCKET_URL || "http://localhost:5000", {
+          auth: { token },
+          transports: ["websocket"],
+        });
+
+        socket.on("connect", () => {
+          activeChats.forEach((chat: any) => {
+            const roomId = `booking_${chat._id || chat.id}`;
+            socket?.emit("join_room", roomId);
+          });
+        });
+
+        socket.on("chat_history", (history: any[]) => {
+          if (!Array.isArray(history) || history.length === 0) return;
+
+          const myId = user.id || (user as any)?._id;
+          const latestIncoming = [...history]
+            .reverse()
+            .find((msg: any) => {
+              const senderId = typeof msg?.senderId === "string" ? msg.senderId : msg?.senderId?._id;
+              return !msg?.isAiMessage && !!senderId && senderId !== myId;
+            });
+
+          if (!latestIncoming) return;
+
+          const bookingId = typeof latestIncoming?.roomId === "string" && latestIncoming.roomId.startsWith("booking_")
+            ? latestIncoming.roomId.replace("booking_", "")
+            : undefined;
+
+          const historyNotification: NotificationItem = {
+            id: `chat-${latestIncoming?._id || `${Date.now()}`}`,
+            type: "chat",
+            title: "New Message",
+            description: (latestIncoming?.text || "You received a new message").slice(0, 80),
+            targetPath: bookingId ? `/${user.role}/messages/${bookingId}` : `/${user.role}/messages`,
+            bookingId,
+            createdAt: latestIncoming?.createdAt || new Date().toISOString(),
+            isRead: locationPathRef.current.includes("/messages"),
+          };
+
+          upsertNotifications((prev) => mergeNotifications(prev, [historyNotification]));
+        });
+
+        socket.on("new_message", (msg: any) => {
+          const senderId = typeof msg?.senderId === "string" ? msg.senderId : msg?.senderId?._id;
+          const myId = user.id || (user as any)?._id;
+          const isFromOtherUser = !!senderId && senderId !== myId;
+          const bookingId = typeof msg?.roomId === "string" && msg.roomId.startsWith("booking_")
+            ? msg.roomId.replace("booking_", "")
+            : undefined;
+
+          if (!msg?.isAiMessage && isFromOtherUser) {
+            const chatNotification: NotificationItem = {
+              id: `chat-${msg?._id || `${Date.now()}`}`,
+              type: "chat",
+              title: "New Message",
+              description: (msg?.text || "You received a new message").slice(0, 80),
+              targetPath: bookingId ? `/${user.role}/messages/${bookingId}` : `/${user.role}/messages`,
+              bookingId,
+              createdAt: msg?.createdAt || new Date().toISOString(),
+              isRead: locationPathRef.current.includes("/messages"),
+            };
+
+            upsertNotifications((prev) => mergeNotifications(prev, [chatNotification]));
+          }
+        });
+      } catch {
+        // Keep dashboard usable even if notification setup fails.
+      }
+    };
+
+    setupMessageNotifications();
+
+    return () => {
+      socket?.disconnect();
+    };
+  }, [user, token, notificationStorageKey]);
+
+  useEffect(() => {
+    if (location.pathname.includes("/messages")) {
+      upsertNotifications((prev) => {
+        const next = prev.map((notification) =>
+          notification.type === "chat" ? { ...notification, isRead: true } : notification
+        );
+        return next;
+      });
+    }
+  }, [location.pathname]);
 
   const handleLogout = () => {
     logout();
     navigate("/login");
+  };
+
+  const handleNotificationClick = (notification: NotificationItem) => {
+    upsertNotifications((prev) =>
+      prev.map((item) =>
+        item.id === notification.id ? { ...item, isRead: true } : item
+      )
+    );
+    navigate(notification.targetPath);
   };
 
   return (
@@ -115,10 +346,75 @@ export function DashboardLayout({ children, sidebarItems, title }: DashboardLayo
           </div>
 
           <div className="flex items-center gap-6">
-            <Button variant="ghost" size="icon" className="relative text-white/60 hover:text-white hover:bg-white/5 rounded-2xl h-11 w-11 transition-all">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-3 right-3 h-2 w-2 bg-[#97BC62] border-2 border-[#1a2e1a] rounded-full animate-pulse" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  className="relative text-white/60 hover:text-white hover:bg-white/5 rounded-2xl h-11 w-11 transition-all"
+                >
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-[#97BC62] text-[#1a2e1a] text-[10px] font-black rounded-full flex items-center justify-center border-2 border-[#1a2e1a]">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[360px] mt-3 rounded-2xl border-white/10 bg-[#1a2e1a] text-white shadow-2xl p-2">
+                <div className="px-4 py-3 border-b border-white/5 mb-2 flex items-center justify-between">
+                  <p className="text-sm font-bold">Notifications</p>
+                  {unreadCount > 0 && (
+                    <span className="text-[10px] font-black uppercase tracking-wider text-[#97BC62]">{unreadCount} new</span>
+                  )}
+                </div>
+
+                <div className="max-h-[360px] overflow-y-auto no-scrollbar space-y-1 px-1 pb-1">
+                  {notifications.length === 0 ? (
+                    <div className="px-4 py-8 text-center text-xs font-bold text-white/40 uppercase tracking-widest">
+                      No notifications yet
+                    </div>
+                  ) : (
+                    notifications.map((notification) => (
+                      <button
+                        key={notification.id}
+                        type="button"
+                        onClick={() => handleNotificationClick(notification)}
+                        className="w-full text-left p-3 rounded-xl hover:bg-white/5 transition-colors"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="h-8 w-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0 mt-0.5">
+                            {notification.type === "chat" ? (
+                              <MessageSquare className="h-4 w-4 text-[#97BC62]" />
+                            ) : (
+                              <CheckCircle2 className="h-4 w-4 text-[#97BC62]" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-sm font-bold leading-tight">{notification.title}</p>
+                              {!notification.isRead && (
+                                <span className="h-2 w-2 rounded-full bg-[#97BC62] mt-1.5 shrink-0" />
+                              )}
+                            </div>
+                            <p className="text-xs text-white/50 mt-1 line-clamp-2">{notification.description}</p>
+                            <p className="text-[10px] text-white/30 mt-1.5 font-black uppercase tracking-wider">
+                              {new Date(notification.createdAt).toLocaleString([], {
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

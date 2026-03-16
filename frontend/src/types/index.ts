@@ -46,6 +46,7 @@ export interface Agent {
     coordinates: [number, number];
   };
   address?: string;
+  distanceKm?: number | null;
 }
 
 export interface ChatContact {
@@ -127,4 +128,34 @@ export interface AdminDashboardData {
 export interface AnalyticsData {
   categories: { label: string; value: number }[];
   revenue: { month: string; amount: number }[];
+}
+
+export interface AgentProfileDetails {
+  id: string;
+  userId: string;
+  name: string;
+  avatar?: string;
+  address?: string;
+  phone?: string;
+  specialization: string;
+  rating: number;
+  completedJobs: number;
+  available: boolean;
+  portfolioImages: string[];
+}
+
+export interface AgentReview {
+  id: string;
+  rating: number;
+  comment: string;
+  customerName: string;
+  customerAvatar?: string;
+  createdAt: string;
+}
+
+export interface ReviewStatus {
+  bookingId: string;
+  hasReview: boolean;
+  canReview: boolean;
+  agentId?: string;
 }

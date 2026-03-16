@@ -18,7 +18,9 @@ import CustomerLayout from "./pages/customer/CustomerLayout";
 import CustomerDashboard from "./pages/customer/CustomerDashboard";
 import BookService from "./pages/customer/BookService";
 import CostEstimator from "./pages/customer/CostEstimator";
+import PaymentGateway from "./pages/customer/PaymentGateway";
 import NearbyAgents from "./pages/customer/NearbyAgents";
+import AgentProfile from "./pages/customer/AgentProfile";
 import ServiceTracking from "./pages/customer/ServiceTracking";
 import ServiceHistory from "./pages/customer/ServiceHistory";
 import Reviews from "./pages/customer/Reviews";
@@ -43,7 +45,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <AuthProvider>
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <FloatingChatWidget />
           <Routes>
             <Route path="/" element={<Home />} />
@@ -56,8 +58,10 @@ const App = () => (
             <Route path="/customer" element={<ProtectedRoute allowedRoles={["customer"]}><CustomerLayout /></ProtectedRoute>}>
               <Route index element={<CustomerDashboard />} />
               <Route path="book" element={<BookService />} />
+              <Route path="payment" element={<PaymentGateway />} />
               <Route path="estimator" element={<CostEstimator />} />
               <Route path="agents" element={<NearbyAgents />} />
+              <Route path="agents/:id" element={<AgentProfile />} />
               <Route path="tracking" element={<ServiceTracking />} />
               <Route path="history" element={<ServiceHistory />} />
               <Route path="messages" element={<Messages />} />
