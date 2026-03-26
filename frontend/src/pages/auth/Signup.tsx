@@ -12,6 +12,7 @@ import { UserRole } from "@/types";
 
 export default function Signup() {
   const [form, setForm] = useState({ fullName: "", email: "", address: "", phone: "", role: "" as UserRole, username: "", password: "" });
+  const [phoneError, setPhoneError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { signup, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
@@ -26,10 +27,23 @@ export default function Signup() {
 
   const strength = passwordStrength(form.password);
 
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const digits = value.replace(/\D/g, '');
+    if (digits.length > 10) {
+      setPhoneError("Phone number must be exactly 10 digits");
+    } else {
+      setPhoneError("");
+    }
+    setForm({ ...form, phone: value });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.role) { toast({ title: "Error", description: "Please select a role", variant: "destructive" }); return; }
     if (!form.email) { toast({ title: "Error", description: "Please enter an email", variant: "destructive" }); return; }
+    const digits = form.phone.replace(/\D/g, '');
+    if (digits.length !== 10) { toast({ title: "Error", description: "Phone number must be exactly 10 digits", variant: "destructive" }); return; }
     setIsLoading(true);
     try {
       const result = await signup({ ...form, role: form.role });
@@ -134,12 +148,15 @@ export default function Signup() {
                 <Label htmlFor="phone" className="text-white/80 ml-1">Phone Number</Label>
                 <Input 
                   id="phone" 
-                  placeholder="+1 (555) 000-0000" 
+                  placeholder="10-digit phone number" 
                   value={form.phone} 
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })} 
+                  onChange={handlePhoneChange} 
                   required 
-                  className="bg-black/20 border-white/10 text-white placeholder:text-white/30 h-12 focus:bg-black/40 transition-all rounded-xl border-2 focus:border-white/30"
+                  className={`bg-black/20 border-white/10 text-white placeholder:text-white/30 h-12 focus:bg-black/40 transition-all rounded-xl border-2 ${phoneError ? 'border-red-400 focus:border-red-400' : 'focus:border-white/30'}`}
                 />
+                {phoneError && (
+                  <p className="text-red-400 text-xs font-semibold ml-1 mt-1">{phoneError}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label className="text-white/80 ml-1">Account Role</Label>
@@ -150,7 +167,6 @@ export default function Signup() {
                   <SelectContent className="bg-[#1a2e1a] border-white/10 text-white">
                     <SelectItem value="customer">Customer</SelectItem>
                     <SelectItem value="agent">Cleaning Agent</SelectItem>
-                    <SelectItem value="admin">Administrator</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
