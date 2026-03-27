@@ -54,21 +54,28 @@ router.get('/bookings', async (req: any, res: any) => {
 // POST /api/customer/bookings
 router.post('/bookings', async (req: any, res: any) => {
   try {
-    const { serviceType, variant, date, isEmergency, address } = req.body;
+    const { serviceType, variant, date, isEmergency, address, estimateAmount } = req.body;
 
-    // Calculate amount based on service type and variant
-    let baseAmount = 150;
-    if (variant === 'Deep Cleaning') baseAmount = 250;
-    if (variant === 'Emergency') baseAmount = 450;
-    if (serviceType === 'Office Cleaning') baseAmount *= 1.2;
-    if (serviceType === 'Commercial Cleaning') baseAmount *= 1.8;
-    if (isEmergency) baseAmount *= 1.5;
+    // Use the frontend estimate if provided (this is what the user was shown),
+    // otherwise fall back to a basic rate calculation.
+    let amount: number;
+    if (typeof estimateAmount === 'number' && estimateAmount > 0) {
+      amount = Math.round(estimateAmount);
+    } else {
+      let baseAmount = 150;
+      if (variant === 'Deep Cleaning') baseAmount = 250;
+      if (variant === 'Emergency') baseAmount = 450;
+      if (serviceType === 'Office Cleaning') baseAmount *= 1.2;
+      if (serviceType === 'Commercial Cleaning') baseAmount *= 1.8;
+      if (isEmergency) baseAmount *= 1.5;
+      amount = Math.round(baseAmount);
+    }
 
     const booking = await Booking.create({
       serviceType,
       variant,
       date: new Date(date),
-      amount: Math.round(baseAmount),
+      amount,
       customerId: req.user!._id,
       isEmergency: isEmergency || false,
       address: address || req.user!.address,

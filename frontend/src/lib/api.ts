@@ -64,6 +64,7 @@ export const customerAPI = {
     date: string;
     isEmergency?: boolean;
     address?: string;
+    estimateAmount?: number;
   }) => api.post('/customer/bookings', data),
   getBookingTracking: (id: string) => api.get(`/customer/bookings/${id}/tracking`),
   getNearbyAgents: (params?: { lat?: number; lng?: number; distance?: number; minRating?: number }) =>

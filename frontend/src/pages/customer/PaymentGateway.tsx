@@ -91,6 +91,7 @@ export default function PaymentGateway() {
         date: bookingDraft.date,
         isEmergency: bookingDraft.isEmergency,
         address: bookingDraft.address,
+        estimateAmount: payableAmount,
       });
 
       localStorage.removeItem("cleanmate_pending_booking");

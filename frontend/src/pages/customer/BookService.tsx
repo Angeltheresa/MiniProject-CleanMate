@@ -53,8 +53,11 @@ export default function BookService() {
 
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
+  const hasArea = Number(area) > 0;
+
   const estimatePreview = useMemo(() => {
     const areaValue = Math.max(Number(area) || 0, 0);
+    if (areaValue === 0) return 0;
     const areaInSqft = areaUnit === "sqm" ? areaValue * 10.7639 : areaValue;
     const rate = RATE_PER_SQFT[variant] || 18;
     const areaCharge = areaInSqft * rate;
@@ -320,7 +323,7 @@ export default function BookService() {
                     size="sm" 
                   type="button"
                     className="h-8 text-[11px] font-black uppercase tracking-wider text-[#97BC62] hover:text-[#1a2e1a] hover:bg-[#97BC62]/10 rounded-full"
-                    onClick={fetchLocation}
+                    onClick={() => fetchLocation()}
                     disabled={isFetchingLocation}
                 >
                     {isFetchingLocation ? <Loader2 className="h-3 w-3 animate-spin" /> : <MapPin className="h-3 w-3" />}
@@ -354,8 +357,14 @@ export default function BookService() {
 
           <div className="relative z-10 rounded-2xl bg-[#1a2e1a] text-white p-5 border border-[#97BC62]/20">
             <p className="text-[11px] font-black uppercase tracking-widest text-[#97BC62]">Estimated Cost Preview</p>
-            <p className="mt-2 text-3xl font-display font-bold">₹{estimatePreview.toLocaleString("en-IN")}</p>
-            <p className="mt-1 text-xs text-white/60">Based on area, selected variant, and room configuration.</p>
+            {hasArea ? (
+              <>
+                <p className="mt-2 text-3xl font-display font-bold">₹{estimatePreview.toLocaleString("en-IN")}</p>
+                <p className="mt-1 text-xs text-white/60">Based on area, selected variant, and room configuration.</p>
+              </>
+            ) : (
+              <p className="mt-2 text-sm text-white/50">Enter your area above to see an instant price estimate.</p>
+            )}
           </div>
 
           <Button 
