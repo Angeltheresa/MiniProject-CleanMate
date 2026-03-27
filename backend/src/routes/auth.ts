@@ -94,6 +94,96 @@ router.get('/me', authenticate as any, async (req: any, res: any) => {
   }
 });
 
+// PUT /api/auth/profile
+router.put('/profile', authenticate as any, async (req: any, res: any) => {
+  try {
+    const user = req.user!;
+    const { fullName, email, username, phone, address, avatar } = req.body;
+
+    if (typeof fullName === 'string') user.fullName = fullName.trim();
+    if (typeof phone === 'string') user.phone = phone.trim();
+    if (typeof address === 'string') user.address = address.trim();
+    if (typeof avatar === 'string') user.avatar = avatar.trim();
+
+    if (typeof email === 'string' && email.trim()) {
+      const normalizedEmail = email.trim().toLowerCase();
+      if (normalizedEmail !== user.email) {
+        const existingEmail = await User.findOne({
+          email: normalizedEmail,
+          _id: { $ne: user._id },
+        });
+        if (existingEmail) {
+          res.status(400).json({ message: 'Email is already in use' });
+          return;
+        }
+      }
+      user.email = normalizedEmail;
+    }
+
+    if (typeof username === 'string' && username.trim()) {
+      const normalizedUsername = username.trim().toLowerCase();
+      if (normalizedUsername !== user.username) {
+        const existingUsername = await User.findOne({
+          username: normalizedUsername,
+          _id: { $ne: user._id },
+        });
+        if (existingUsername) {
+          res.status(400).json({ message: 'Username is already in use' });
+          return;
+        }
+      }
+      user.username = normalizedUsername;
+    }
+
+    await user.save();
+
+    res.json({
+      message: 'Profile updated successfully',
+      user: user.toJSON(),
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Failed to update profile', error: error.message });
+  }
+});
+
+// PUT /api/auth/change-password
+router.put('/change-password', authenticate as any, async (req: any, res: any) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+      res.status(400).json({ message: 'New password must be at least 8 characters long' });
+      return;
+    }
+
+    const user = await User.findById(req.user!._id).select('+password');
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
+    if (user.password) {
+      if (!currentPassword || typeof currentPassword !== 'string') {
+        res.status(400).json({ message: 'Current password is required' });
+        return;
+      }
+
+      const isMatch = await user.comparePassword(currentPassword);
+      if (!isMatch) {
+        res.status(400).json({ message: 'Current password is incorrect' });
+        return;
+      }
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ message: 'Password updated successfully' });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Failed to update password', error: error.message });
+  }
+});
+
 // GET /api/auth/google
 router.get(
   '/google',

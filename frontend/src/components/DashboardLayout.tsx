@@ -434,7 +434,10 @@ export function DashboardLayout({ children, sidebarItems, title }: DashboardLayo
                   <p className="text-sm font-bold truncate">{user?.fullName}</p>
                   <p className="text-xs text-white/40 truncate">{user?.email}</p>
                 </div>
-                <DropdownMenuItem className="gap-3 rounded-xl cursor-pointer hover:bg-white/5 focus:bg-white/5 focus:text-white p-3">
+                <DropdownMenuItem
+                  onClick={() => navigate(`/${user?.role}/profile`)}
+                  className="gap-3 rounded-xl cursor-pointer hover:bg-white/5 focus:bg-white/5 focus:text-white p-3"
+                >
                   <User className="h-4 w-4 text-[#97BC62]" /> <span className="text-sm font-medium">Profile Settings</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className="bg-white/5 my-2" />

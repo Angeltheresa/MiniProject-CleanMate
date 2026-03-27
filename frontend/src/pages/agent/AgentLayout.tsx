@@ -1,6 +1,6 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Outlet } from "react-router-dom";
-import { Home, ClipboardList, ToggleLeft, CalendarCheck, Image, FileText, MessageSquare, RefreshCw } from "lucide-react";
+import { Home, ClipboardList, ToggleLeft, CalendarCheck, Image, FileText, MessageSquare, RefreshCw, UserCircle2 } from "lucide-react";
 
 const sidebarItems = [
   { label: "Dashboard", icon: <Home className="h-4 w-4" />, path: "/agent" },
@@ -11,6 +11,7 @@ const sidebarItems = [
   { label: "Documents", icon: <FileText className="h-4 w-4" />, path: "/agent/documents" },
   { label: "Messages", icon: <MessageSquare className="h-4 w-4" />, path: "/agent/messages" },
   { label: "Update Status", icon: <RefreshCw className="h-4 w-4" />, path: "/agent/status" },
+  { label: "Profile", icon: <UserCircle2 className="h-4 w-4" />, path: "/agent/profile" },
 ];
 
 export default function AgentLayout() {
