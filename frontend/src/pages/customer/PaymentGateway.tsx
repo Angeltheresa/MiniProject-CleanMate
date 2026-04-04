@@ -15,6 +15,7 @@ interface BookingDraft {
   isEmergency?: boolean;
   address?: string;
   estimateAmount?: number;
+  agentId?: string;
 }
 
 export default function PaymentGateway() {
@@ -92,6 +93,7 @@ export default function PaymentGateway() {
         isEmergency: bookingDraft.isEmergency,
         address: bookingDraft.address,
         estimateAmount: payableAmount,
+        agentId: bookingDraft.agentId,
       });
 
       localStorage.removeItem("cleanmate_pending_booking");

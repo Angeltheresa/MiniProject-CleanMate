@@ -48,12 +48,12 @@ export default function Home() {
       <div className="bg-brand-dark text-white py-2 px-6 hidden md:block">
         <div className="max-w-7xl mx-auto flex justify-between items-center text-[13px] font-medium opacity-90">
           <div className="flex items-center gap-6">
-            <span className="flex items-center gap-2">
+            <a href="tel:+911234567890" className="flex items-center gap-2 hover:text-brand-light transition-colors">
               <Phone className="h-3.5 w-3.5 text-brand-light" /> +91 123 456 7890
-            </span>
-            <span className="flex items-center gap-2">
+            </a>
+            <a href="mailto:hello@cleanmate.com" className="flex items-center gap-2 hover:text-brand-light transition-colors">
               <Mail className="h-3.5 w-3.5 text-brand-light" /> hello@cleanmate.com
-            </span>
+            </a>
           </div>
           <div className="flex items-center gap-4 italic text-brand-light">
             <Leaf className="h-3 w-3" /> Eco-Friendly Choice for Your Home
@@ -80,14 +80,48 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-4">
-            <Link to="/login">
-              <Button variant="ghost" className="text-brand-dark hover:text-brand-dark/70 font-bold hidden sm:block">Log in</Button>
-            </Link>
-            <Link to="/signup?role=customer">
-              <Button className="green-gradient text-white hover:opacity-90 rounded-full px-8 h-12 font-bold shadow-lg shadow-brand-dark/10">
-                Book Now
-              </Button>
-            </Link>
+            <div className="hidden sm:flex items-center gap-4">
+              <Link to="/login">
+                <Button variant="ghost" className="text-brand-dark hover:text-brand-dark/70 font-bold">Log in</Button>
+              </Link>
+              <Link to="/signup?role=customer">
+                <Button className="green-gradient text-white hover:opacity-90 rounded-full px-8 h-12 font-bold shadow-lg shadow-brand-dark/10">
+                  Book Now
+                </Button>
+              </Link>
+            </div>
+            
+            {/* Mobile Menu Toggle */}
+            <Button variant="ghost" size="icon" className="lg:hidden text-brand-dark" onClick={() => {
+              const menu = document.getElementById('mobile-menu');
+              if (menu) menu.classList.toggle('hidden');
+            }}>
+              <Wind className="h-6 w-6" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Mobile Menu Drawer */}
+        <div id="mobile-menu" className="hidden lg:hidden bg-white border-b border-gray-100 animate-slide-in">
+          <div className="flex flex-col p-6 space-y-4">
+            {['Home', 'Services', 'Quality', 'Our Team', 'Contact'].map((item) => (
+              <a 
+                key={item} 
+                href={`#${item.toLowerCase().replace(' ', '-')}`} 
+                onClick={() => document.getElementById('mobile-menu')?.classList.add('hidden')}
+                className="text-lg font-bold text-brand-dark hover:text-brand-light transition-colors"
+              >
+                {item}
+              </a>
+            ))}
+            <div className="pt-4 flex flex-col gap-4">
+              <Link to="/login" onClick={() => document.getElementById('mobile-menu')?.classList.add('hidden')}>
+                <Button variant="outline" className="w-full h-12 rounded-full font-bold">Log in</Button>
+              </Link>
+              <Link to="/signup?role=customer" onClick={() => document.getElementById('mobile-menu')?.classList.add('hidden')}>
+                <Button className="w-full h-12 rounded-full green-gradient text-white font-bold">Book Now</Button>
+              </Link>
+            </div>
           </div>
         </div>
       </nav>
@@ -114,7 +148,7 @@ export default function Home() {
                 <Button size="lg" className="green-gradient text-white rounded-full px-10 h-16 text-lg font-bold shadow-2xl hover:scale-105 transition-transform">
                   Book an Appointment
                 </Button>
-                <div className="flex items-center gap-4 group cursor-pointer">
+                <a href="tel:+911234567890" className="flex items-center gap-4 group cursor-pointer hover:opacity-80 transition-opacity">
                   <div className="h-14 w-14 rounded-full border-2 border-brand-light flex items-center justify-center group-hover:bg-brand-light/10 transition-colors">
                     <Smartphone className="h-6 w-6 text-brand-dark" />
                   </div>
@@ -122,7 +156,7 @@ export default function Home() {
                     <p className="text-xs font-bold uppercase tracking-widest text-brand-dark/40">Call us Today</p>
                     <p className="text-lg font-black text-brand-dark">+91 123 456 7890</p>
                   </div>
-                </div>
+                </a>
               </div>
 
               {/* Trust Section Badges (Figure Style) */}
@@ -130,9 +164,9 @@ export default function Home() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <div className="flex -space-x-3">
-                      {[1,2,3,4].map(i => (
+                      {['/images/expert.png', '/images/expert_woman.png', '/images/expert_man.png', '/images/customer_3.png', '/images/customer_4.png', '/images/expert_team.png'].map((img, i) => (
                         <div key={i} className={`w-8 h-8 rounded-full border-2 border-white bg-gray-200 overflow-hidden`}>
-                           <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=user${i}`} alt="user" />
+                           <img src={img} alt="user" className="w-full h-full object-cover" />
                         </div>
                       ))}
                     </div>
@@ -288,8 +322,30 @@ export default function Home() {
                 
                 <div className="space-y-8">
                   {[
-                    { name: "Anita Desai", role: "Homeowner", text: "The team arrived on time and used products that didn't leave any chemical smell. My kids have allergies, so this was perfect for us." },
-                    { name: "Rahul Sharma", role: "CEO, TechOffice", text: "CleanMate manages our daily office cleaning across 3 floors. They are silent, efficient, and very professional." }
+                    { 
+                      name: "Anita Desai", 
+                      role: "Homeowner", 
+                      image: "/images/expert_woman.png",
+                      text: "The team arrived on time and used products that didn't leave any chemical smell. My kids have allergies, so this was perfect for us." 
+                    },
+                    { 
+                      name: "Rahul Sharma", 
+                      role: "CEO, TechOffice", 
+                      image: "/images/expert_man.png",
+                      text: "CleanMate manages our daily office cleaning across 3 floors. They are silent, efficient, and very professional." 
+                    },
+                    { 
+                      name: "Meera Iyer", 
+                      role: "Interior Designer", 
+                      image: "/images/customer_3.png",
+                      text: "I recommend CleanMate to all my clients. Their attention to detail and eco-friendly approach is unmatched." 
+                    },
+                    { 
+                      name: "Amitabh Kumar", 
+                      role: "Property Manager", 
+                      image: "/images/customer_4.png",
+                      text: "Managing over 50 residential units requires a partner you can trust. CleanMate is consistently exceptional." 
+                    }
                   ].map((t, i) => (
                     <div key={i} className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm relative group hover:shadow-xl transition-all">
                        <div className="absolute -top-4 -left-4 h-10 w-10 bg-brand-light rounded-2xl flex items-center justify-center text-brand-dark">
@@ -298,7 +354,11 @@ export default function Home() {
                        <p className="text-brand-dark/70 text-lg leading-relaxed italic mb-6">"{t.text}"</p>
                        <div className="flex items-center gap-4">
                          <div className="w-12 h-12 rounded-full bg-brand-soft overflow-hidden">
-                           <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${t.name}`} alt={t.name} />
+                           <img 
+                             src={t.image} 
+                             alt={t.name} 
+                             className="w-full h-full object-cover" 
+                           />
                          </div>
                          <div>
                             <p className="font-black text-brand-dark">{t.name}</p>
@@ -347,16 +407,16 @@ export default function Home() {
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
               {[
-                { name: "Robert Fox", role: "Head of Eco-Sanitation" },
-                { name: "Jenny Wilson", role: "Deep Clean Expert" },
-                { name: "Wade Warren", role: "Team Supervisor" },
-                { name: "Jane Cooper", role: "Home Care Specialist" }
+                { name: "Robert Fox", role: "Head of Eco-Sanitation", image: "/images/expert.png" },
+                { name: "Jenny Wilson", role: "Deep Clean Expert", image: "/images/expert_woman.png" },
+                { name: "Wade Warren", role: "Team Supervisor", image: "/images/expert_man.png" },
+                { name: "Jane Cooper", role: "Home Care Specialist", image: "/images/expert_team.png" }
               ].map((user, i) => (
                 <div key={i} className="group relative bg-white rounded-[60px] p-8 pb-12 shadow-sm border border-gray-100 hover:shadow-2xl transition-all duration-500 overflow-hidden">
                   <div className="absolute top-0 right-0 h-40 w-40 bg-brand-light/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-brand-light/20 transition-all"></div>
                   <div className="h-56 w-56 mx-auto rounded-full bg-gray-100 p-2 mb-8 relative z-10 border-2 border-brand-light/20 group-hover:border-brand-light transition-colors">
                      <img 
-                       src={i === 0 ? "/images/expert.png" : `https://api.dicebear.com/7.x/avataaars/svg?seed=cleaner${i+5}`} 
+                       src={user.image} 
                        alt={user.name} 
                        className="w-full h-full object-cover rounded-full" 
                      />
@@ -372,6 +432,91 @@ export default function Home() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        </section>
+        {/* CONTACT SECTION */}
+        <section id="contact" className="py-32 px-6 bg-white overflow-hidden">
+          <div className="max-w-7xl mx-auto">
+            <div className="relative rounded-[80px] bg-brand-dark p-12 lg:p-24 overflow-hidden border border-white/10 shadow-2xl">
+              <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-brand-light/10 rounded-full blur-[120px] translate-x-1/3 -translate-y-1/2"></div>
+              <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-brand-light/5 rounded-full blur-[100px] -translate-x-1/2 translate-y-1/2"></div>
+              
+              <div className="relative z-10 grid lg:grid-cols-2 gap-20 items-center">
+                <div className="space-y-12">
+                  <div className="space-y-4">
+                    <span className="text-brand-light font-black uppercase tracking-[0.3em] text-xs">Get in Touch</span>
+                    <h2 className="text-5xl lg:text-7xl font-display font-black text-white leading-tight">Ready for a<br /><span className="text-brand-light italic underline decoration-white/20 underline-offset-[12px]">Fresh Start?</span></h2>
+                    <p className="text-white/40 text-xl max-w-md leading-relaxed">
+                      We're here to help you transform your space. Send us a message and our team will get back to you within 24 hours.
+                    </p>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-8 lg:gap-12">
+                    <a href="tel:+911234567890" className="group relative p-10 rounded-[40px] bg-white/5 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-all duration-500 overflow-hidden">
+                      <div className="absolute top-0 right-0 h-32 w-32 bg-brand-light/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-brand-light/10 transition-all"></div>
+                      <div className="relative z-10 space-y-6">
+                        <div className="h-14 w-14 rounded-2xl bg-brand-light flex items-center justify-center text-brand-dark group-hover:scale-110 transition-transform">
+                          <Phone className="h-6 w-6" />
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-black uppercase text-brand-light tracking-[0.3em] opacity-60">Call Us Anywhere</p>
+                          <p className="text-2xl font-display font-black text-white tracking-tight">+91 123 456 7890</p>
+                        </div>
+                      </div>
+                    </a>
+                    <a href="mailto:hello@cleanmate.com" className="group relative p-8 lg:p-10 rounded-[40px] bg-white/5 border border-white/10 backdrop-blur-md hover:bg-white/10 transition-all duration-500 overflow-hidden">
+                      <div className="absolute top-0 right-0 h-32 w-32 bg-brand-light/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-brand-light/10 transition-all"></div>
+                      <div className="relative z-10 space-y-6">
+                        <div className="h-14 w-14 rounded-2xl bg-brand-light flex items-center justify-center text-brand-dark group-hover:scale-110 transition-transform">
+                          <Mail className="h-6 w-6" />
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-black uppercase text-brand-light tracking-[0.3em] opacity-60">Message Our Team</p>
+                          <p className="text-xl md:text-2xl font-display font-black text-white tracking-tight break-all">hello@cleanmate.com</p>
+                        </div>
+                      </div>
+                    </a>
+                  </div>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-3xl p-10 lg:p-16 rounded-[60px] border border-white/20 shadow-2xl">
+                  <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); alert("Thanks! We'll be in touch soon."); }}>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-light ml-2">Full Name</label>
+                       <input 
+                         type="text" 
+                         placeholder="Your Name" 
+                         className="w-full bg-white/5 border-2 border-white/10 p-5 rounded-2xl text-white focus:outline-none focus:border-brand-light transition-all placeholder:text-white/20" 
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-light ml-2">Email Address</label>
+                       <input 
+                         type="email" 
+                         placeholder="hello@company.com" 
+                         className="w-full bg-white/5 border-2 border-white/10 p-5 rounded-2xl text-white focus:outline-none focus:border-brand-light transition-all placeholder:text-white/20" 
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-brand-light ml-2">Message</label>
+                       <textarea 
+                         rows={4}
+                         placeholder="How can we help?" 
+                         className="w-full bg-white/5 border-2 border-white/10 p-5 rounded-2xl text-white focus:outline-none focus:border-brand-light transition-all placeholder:text-white/20 resize-none" 
+                       />
+                    </div>
+                    <Button type="submit" className="w-full h-16 rounded-2xl green-gradient text-white font-black text-lg hover:scale-[1.02] active:scale-[0.98] transition-transform shadow-xl shadow-black/20">
+                      Send Messsage
+                    </Button>
+                  </form>
+                </div>
+              </div>
+
+              {/* Decorative graphic */}
+              <div className="absolute -bottom-20 -right-20 w-96 h-96 opacity-10 blur-2xl">
+                 <img src="/images/contact_bg.png" alt="Clean Decor" className="w-full h-full object-contain" />
+              </div>
             </div>
           </div>
         </section>

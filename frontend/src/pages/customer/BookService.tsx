@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, Zap, MapPin, Loader2 } from "lucide-react";
+import { CheckCircle, Zap, MapPin, Loader2, Star, UserSquare2, RefreshCw, Calendar, Home, Building, Factory } from "lucide-react";
 import { customerAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -51,7 +51,20 @@ export default function BookService() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const [selectedAgent, setSelectedAgent] = useState<{ id: string; name: string; avatar: string; rating: number } | null>(null);
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("cleanmate_selected_agent");
+    if (saved) {
+      try { setSelectedAgent(JSON.parse(saved)); } catch (e) {}
+    }
+  }, []);
+
+  const handleChangeAgent = () => {
+    localStorage.removeItem("cleanmate_selected_agent");
+    navigate("/customer/agents");
+  };
 
   const hasArea = Number(area) > 0;
 
@@ -66,9 +79,7 @@ export default function BookService() {
   }, [area, areaUnit, variant, bedrooms, bathrooms, livingRooms, includeKitchen]);
 
   useEffect(() => {
-    if (user?.address && !address) {
-      setAddress(user.address);
-    }
+    if (user?.address && !address) setAddress(user.address);
   }, [user?.address, address]);
 
   useEffect(() => {
@@ -76,13 +87,10 @@ export default function BookService() {
     const storageRaw = localStorage.getItem("cleanmate_estimator_prefill");
     const storagePrefill = storageRaw ? (JSON.parse(storageRaw) as EstimatorPrefill) : undefined;
     const prefill = statePrefill || storagePrefill;
-
     if (!prefill) return;
-
     if (prefill.category) setCategory(prefill.category);
     if (prefill.variant) setVariant(prefill.variant);
     if (typeof prefill.emergency === "boolean") setEmergency(prefill.emergency);
-
     if (prefill.estimateMeta) {
       if (prefill.estimateMeta.area) setArea(prefill.estimateMeta.area);
       if (prefill.estimateMeta.areaUnit) setAreaUnit(prefill.estimateMeta.areaUnit);
@@ -91,25 +99,17 @@ export default function BookService() {
       if (typeof prefill.estimateMeta.livingRooms === "number") setLivingRooms(prefill.estimateMeta.livingRooms);
       if (typeof prefill.estimateMeta.includeKitchen === "boolean") setIncludeKitchen(prefill.estimateMeta.includeKitchen);
     }
-
     if (prefill.estimateAmount) {
-      toast({
-        title: "Estimate Applied",
-        description: `Estimated total: ₹${prefill.estimateAmount.toLocaleString("en-IN")}`,
-      });
+      toast({ title: "Estimate Applied", description: `Estimated total: ₹${prefill.estimateAmount.toLocaleString("en-IN")}` });
     }
-
     localStorage.removeItem("cleanmate_estimator_prefill");
   }, [location.state]);
 
   const fetchLocation = (silent = false) => {
     if (!navigator.geolocation) {
-      if (!silent) {
-        toast({ title: "Error", description: "Geolocation is not supported by your browser", variant: "destructive" });
-      }
+      if (!silent) toast({ title: "Error", description: "Geolocation not supported", variant: "destructive" });
       return;
     }
-
     setIsFetchingLocation(true);
     navigator.geolocation.getCurrentPosition(
       async (position) => {
@@ -118,19 +118,9 @@ export default function BookService() {
           const res = await customerAPI.reverseGeocode(lat, lng);
           const formattedAddress = res.data?.formatted_address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
           setAddress(formattedAddress);
-          if (!silent) {
-            toast({ title: "📍 Location Updated", description: "Your current address has been fetched." });
-          }
+          if (!silent) toast({ title: "📍 Location Updated", description: "Your current address has been fetched." });
         } catch (error: any) {
-          console.error("Reverse geocoding error:", error);
-          const message = error.response?.data?.message || error.message || "Unknown error";
-          if (!silent) {
-            toast({
-              title: "Geolocation Error",
-              description: `${message}. Please enter your address manually if this persists.`,
-              variant: "destructive"
-            });
-          }
+          if (!silent) toast({ title: "Geolocation Error", description: error.message || "Unknown error", variant: "destructive" });
         } finally {
           setIsFetchingLocation(false);
         }
@@ -138,30 +128,18 @@ export default function BookService() {
       (error) => {
         setIsFetchingLocation(false);
         if (silent) return;
-
-        const errorMessage =
-          error.code === error.PERMISSION_DENIED
-            ? "Location access was denied. Please allow location permission."
-            : error.code === error.POSITION_UNAVAILABLE
-              ? "Your location is currently unavailable. Try again in a moment."
-              : error.code === error.TIMEOUT
-                ? "Location request timed out. Please retry."
-                : "Please enable location permissions";
-
-        toast({ title: "Error", description: errorMessage, variant: "destructive" });
+        const msg =
+          error.code === error.PERMISSION_DENIED ? "Location access denied." :
+          error.code === error.POSITION_UNAVAILABLE ? "Location unavailable." :
+          "Location request timed out.";
+        toast({ title: "Error", description: msg, variant: "destructive" });
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
   useEffect(() => {
-    if (!user) return;
-    if (address) return;
-    if (user.address) return;
+    if (!user || address || user.address) return;
     fetchLocation(true);
   }, [user, address]);
 
@@ -181,200 +159,264 @@ export default function BookService() {
       isEmergency: emergency,
       address: address || user?.address,
       estimateAmount: estimatePreview,
-      estimateMeta: {
-        area,
-        areaUnit,
-        bedrooms,
-        bathrooms,
-        livingRooms,
-        includeKitchen,
-      },
+      agentId: selectedAgent?.id,
+      estimateMeta: { area, areaUnit, bedrooms, bathrooms, livingRooms, includeKitchen },
     };
-
     localStorage.setItem("cleanmate_pending_booking", JSON.stringify(bookingDraft));
     navigate("/customer/payment", { state: { bookingDraft } });
   };
 
+  // Gate: no agent selected
+  if (!selectedAgent) {
+    return (
+      <div className="page-container animate-fade-in p-8 flex flex-col items-center justify-center min-h-[75vh] text-center gap-6">
+        <div className="relative">
+          <div className="h-28 w-28 rounded-3xl bg-amber-50 border-2 border-amber-100 flex items-center justify-center shadow-lg">
+            <UserSquare2 className="h-12 w-12 text-amber-400" />
+          </div>
+          <div className="absolute -top-2 -right-2 h-8 w-8 rounded-full bg-red-500 border-2 border-white flex items-center justify-center">
+            <span className="text-white text-xs font-black">!</span>
+          </div>
+        </div>
+        <div className="space-y-2 max-w-md">
+          <h2 className="text-3xl font-display font-black text-[#1a2e1a]">Select an Agent First</h2>
+          <p className="text-[#1a2e1a]/55 text-base leading-relaxed">
+            For your safety and trust, you need to choose a specific cleaning professional before making a booking. Browse our verified agents to get started.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button
+            onClick={() => navigate("/customer/agents")}
+            className="bg-[#1a2e1a] hover:bg-[#2C5F2D] text-white rounded-2xl h-13 px-10 font-bold shadow-xl shadow-[#1a2e1a]/10 hover:scale-105 transition-all"
+          >
+            <MapPin className="h-4 w-4 mr-2" /> Browse Nearby Agents
+          </Button>
+        </div>
+        <p className="text-xs text-[#1a2e1a]/30 font-semibold">Booking is disabled until an agent is selected</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="page-container animate-fade-in p-8 space-y-8">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-3xl font-display font-bold text-[#1a2e1a]">Book a Professional Service</h2>
-        <p className="text-sm text-[#1a2e1a]/40 font-medium">Customized cleaning solutions for every space</p>
+    <div className="page-container animate-fade-in p-6 md:p-8 space-y-6">
+      {/* Page Header */}
+      <div>
+        <h2 className="text-3xl font-display font-black text-[#1a2e1a]">Book a Service</h2>
+        <p className="text-sm text-[#1a2e1a]/40 mt-1 font-medium">Fill in the details below to confirm your booking</p>
       </div>
 
-      <div className="max-w-3xl">
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-2xl p-8 md:p-12 space-y-8 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-[#97BC62]/10 rounded-bl-[4rem]" />
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
-            <div className="space-y-2">
-              <Label className="text-[#1a2e1a] font-bold ml-1">Service Category</Label>
-              <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger className="bg-slate-50 border-slate-200 h-12 rounded-xl focus:ring-[#1a2e1a] capitalize font-semibold text-[#1a2e1a]">
-                  <SelectValue placeholder="What needs cleaning?" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-slate-200 rounded-xl">
-                  <SelectItem value="House Cleaning" className="focus:bg-[#97BC62]/10 focus:text-[#1a2e1a]">🏠 House Cleaning</SelectItem>
-                  <SelectItem value="Office Cleaning" className="focus:bg-[#97BC62]/10 focus:text-[#1a2e1a]">🏢 Office Cleaning</SelectItem>
-                  <SelectItem value="Commercial Cleaning" className="focus:bg-[#97BC62]/10 focus:text-[#1a2e1a]">🏭 Commercial Cleaning</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-[#1a2e1a] font-bold ml-1">Service Intensity</Label>
-              <Select value={variant} onValueChange={setVariant}>
-                <SelectTrigger className="bg-slate-50 border-slate-200 h-12 rounded-xl focus:ring-[#1a2e1a] font-semibold text-[#1a2e1a]">
-                  <SelectValue placeholder="Select intensity" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-slate-200 rounded-xl">
-                  <SelectItem value="Standard" className="focus:bg-[#97BC62]/10">Standard Clean</SelectItem>
-                  <SelectItem value="Deep Cleaning" className="focus:bg-[#1a2e1a] focus:text-white">Deep Sanitization</SelectItem>
-                  <SelectItem value="Emergency" className="focus:bg-amber-100 focus:text-amber-800">Swift Response</SelectItem>
-                </SelectContent>
-              </Select>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* LEFT: Main Form */}
+        <div className="lg:col-span-2 space-y-5">
+          {/* Selected Agent Card */}
+          <div className="bg-white rounded-2xl border-2 border-[#2C5F2D]/20 shadow-sm p-5">
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#1a2e1a]/40 mb-3">Your Selected Agent</p>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 rounded-2xl bg-[#1a2e1a]/5 flex items-center justify-center shrink-0 text-2xl font-black text-[#1a2e1a] overflow-hidden border border-white shadow">
+                  {selectedAgent.avatar
+                    ? <img src={selectedAgent.avatar} alt={selectedAgent.name} className="h-full w-full object-cover" />
+                    : selectedAgent.name.charAt(0)
+                  }
+                </div>
+                <div>
+                  <p className="font-black text-[#1a2e1a] text-lg leading-none">{selectedAgent.name}</p>
+                  <div className="flex items-center gap-1 mt-2">
+                    {Array.from({ length: 5 }, (_, i) => (
+                      <Star key={i} className={`h-3.5 w-3.5 ${i < Math.round(selectedAgent.rating) ? "text-amber-400 fill-amber-400" : "text-gray-200"}`} />
+                    ))}
+                    <span className="text-xs font-bold text-[#1a2e1a]/50 ml-1">{selectedAgent.rating?.toFixed(1)}</span>
+                  </div>
+                </div>
+              </div>
+              <Button variant="ghost" onClick={handleChangeAgent} className="text-[#1a2e1a]/50 hover:text-[#1a2e1a] hover:bg-slate-100 rounded-xl text-xs font-bold h-9 px-3">
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Change
+              </Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
-            <div className="space-y-2">
-              <Label className="text-[#1a2e1a] font-bold ml-1">Home Size / Area</Label>
-              <Input
-                type="number"
-                min={0}
-                placeholder="e.g. 1200"
-                value={area}
-                onChange={(e) => setArea(e.target.value)}
-                className="bg-slate-50 border-slate-200 h-12 rounded-xl focus:ring-[#1a2e1a] font-semibold text-[#1a2e1a]"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-[#1a2e1a] font-bold ml-1">Area Unit</Label>
-              <Select value={areaUnit} onValueChange={(v) => setAreaUnit(v as AreaUnit)}>
-                <SelectTrigger className="bg-slate-50 border-slate-200 h-12 rounded-xl focus:ring-[#1a2e1a] font-semibold text-[#1a2e1a]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-slate-200 rounded-xl">
-                  <SelectItem value="sqft">Square Feet (sq ft)</SelectItem>
-                  <SelectItem value="sqm">Square Meters (sq m)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-[#1a2e1a] font-bold ml-1">Number of Rooms</Label>
-              <Input
-                type="number"
-                min={0}
-                value={bedrooms}
-                onChange={(e) => setBedrooms(Math.max(0, Number(e.target.value) || 0))}
-                className="bg-slate-50 border-slate-200 h-12 rounded-xl focus:ring-[#1a2e1a] font-semibold text-[#1a2e1a]"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-[#1a2e1a] font-bold ml-1">Number of Bathrooms</Label>
-              <Input
-                type="number"
-                min={0}
-                value={bathrooms}
-                onChange={(e) => setBathrooms(Math.max(0, Number(e.target.value) || 0))}
-                className="bg-slate-50 border-slate-200 h-12 rounded-xl focus:ring-[#1a2e1a] font-semibold text-[#1a2e1a]"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-[#1a2e1a] font-bold ml-1">Living Rooms / Halls</Label>
-              <Input
-                type="number"
-                min={0}
-                value={livingRooms}
-                onChange={(e) => setLivingRooms(Math.max(0, Number(e.target.value) || 0))}
-                className="bg-slate-50 border-slate-200 h-12 rounded-xl focus:ring-[#1a2e1a] font-semibold text-[#1a2e1a]"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-[#1a2e1a] font-bold ml-1">Include Kitchen</Label>
-              <div className="h-12 rounded-xl bg-slate-50 border border-slate-200 px-4 flex items-center justify-between">
-                <span className="text-sm font-semibold text-[#1a2e1a]">Kitchen Cleaning</span>
-                <Switch checked={includeKitchen} onCheckedChange={setIncludeKitchen} />
+          {/* Service Selection */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-5">
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#1a2e1a]/40">Service Details</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[#1a2e1a] font-bold text-sm">Service Category</Label>
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { value: "House Cleaning", label: "House Cleaning", icon: Home },
+                    { value: "Office Cleaning", label: "Office Cleaning", icon: Building },
+                    { value: "Commercial Cleaning", label: "Commercial", icon: Factory },
+                  ].map(({ value, label, icon: Icon }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setCategory(value)}
+                      className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all font-semibold text-sm ${
+                        category === value
+                          ? "border-[#1a2e1a] bg-[#1a2e1a] text-white"
+                          : "border-slate-100 bg-slate-50 text-[#1a2e1a] hover:border-[#97BC62]/50"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[#1a2e1a] font-bold text-sm">Service Intensity</Label>
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { value: "Standard", label: "Standard Clean", desc: "Regular maintenance", price: "₹18/sqft" },
+                    { value: "Deep Cleaning", label: "Deep Sanitization", desc: "Thorough deep clean", price: "₹25/sqft" },
+                    { value: "Emergency", label: "Swift Response", desc: "Same-day urgent", price: "₹35/sqft" },
+                  ].map(({ value, label, desc, price }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setVariant(value)}
+                      className={`flex items-start justify-between p-3 rounded-xl border-2 text-left transition-all ${
+                        variant === value
+                          ? "border-[#1a2e1a] bg-[#1a2e1a] text-white"
+                          : "border-slate-100 bg-slate-50 text-[#1a2e1a] hover:border-[#97BC62]/50"
+                      }`}
+                    >
+                      <div>
+                        <p className="font-bold text-sm">{label}</p>
+                        <p className={`text-xs mt-0.5 ${variant === value ? "text-white/60" : "text-[#1a2e1a]/40"}`}>{desc}</p>
+                      </div>
+                      <span className={`text-xs font-black mt-0.5 ${variant === value ? "text-[#97BC62]" : "text-[#1a2e1a]/40"}`}>{price}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="space-y-2 relative z-10">
-            <Label className="text-[#1a2e1a] font-bold ml-1">Preferred Date</Label>
-            <Input 
-              type="date" 
-              value={date} 
-              onChange={(e) => setDate(e.target.value)} 
-              min={new Date().toISOString().split('T')[0]} 
-              className="bg-slate-50 border-slate-200 h-12 rounded-xl focus:ring-[#1a2e1a] font-semibold text-[#1a2e1a]"
-            />
-          </div>
-
-          <div className="space-y-2 relative z-10">
-            <div className="flex items-center justify-between mb-1">
-                <Label className="text-[#1a2e1a] font-bold ml-1">Service Address</Label>
-                <Button 
-                    variant="ghost" 
-                    size="sm" 
-                  type="button"
-                    className="h-8 text-[11px] font-black uppercase tracking-wider text-[#97BC62] hover:text-[#1a2e1a] hover:bg-[#97BC62]/10 rounded-full"
-                    onClick={() => fetchLocation()}
-                    disabled={isFetchingLocation}
-                >
-                    {isFetchingLocation ? <Loader2 className="h-3 w-3 animate-spin" /> : <MapPin className="h-3 w-3" />}
-                    Detect Location
-                </Button>
-            </div>
-            <Input 
-              placeholder="Where should we clean?" 
-              value={address} 
-              onChange={(e) => setAddress(e.target.value)} 
-              className="bg-slate-50 border-slate-200 h-12 rounded-xl focus:ring-[#1a2e1a] font-semibold text-[#1a2e1a]"
-            />
-          </div>
-
-          <div className={`group relative flex items-center justify-between p-6 rounded-3xl border-2 transition-all duration-300 ${emergency ? "border-amber-400 bg-amber-50" : "border-slate-100 bg-slate-50/50 hover:border-[#97BC62]/30"}`}>
-            <div className="flex items-center gap-4">
-              <div className={`h-12 w-12 rounded-2xl flex items-center justify-center transition-colors ${emergency ? "bg-amber-400 text-white" : "bg-white text-slate-300 group-hover:text-[#97BC62]"}`}>
-                <Zap className="h-6 w-6" />
+          {/* Area & Rooms */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#1a2e1a]/40">Property Details</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-[#1a2e1a] font-bold text-sm">Area</Label>
+                <Input type="number" min={0} placeholder="e.g. 1200" value={area} onChange={(e) => setArea(e.target.value)} className="bg-slate-50 border-slate-200 h-11 rounded-xl font-semibold text-[#1a2e1a]" />
               </div>
-              <div>
-                <p className={`text-sm font-black uppercase tracking-tight ${emergency ? "text-amber-800" : "text-[#1a2e1a]"}`}>Emergency Priority</p>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Instant scheduling for urgent needs</p>
+              <div className="space-y-1.5">
+                <Label className="text-[#1a2e1a] font-bold text-sm">Unit</Label>
+                <Select value={areaUnit} onValueChange={(v) => setAreaUnit(v as AreaUnit)}>
+                  <SelectTrigger className="bg-slate-50 border-slate-200 h-11 rounded-xl font-semibold text-[#1a2e1a]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sqft">sq ft</SelectItem>
+                    <SelectItem value="sqm">sq m</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[#1a2e1a] font-bold text-sm">Bedrooms</Label>
+                <Input type="number" min={0} value={bedrooms} onChange={(e) => setBedrooms(Math.max(0, Number(e.target.value)))} className="bg-slate-50 border-slate-200 h-11 rounded-xl font-semibold text-[#1a2e1a]" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[#1a2e1a] font-bold text-sm">Bathrooms</Label>
+                <Input type="number" min={0} value={bathrooms} onChange={(e) => setBathrooms(Math.max(0, Number(e.target.value)))} className="bg-slate-50 border-slate-200 h-11 rounded-xl font-semibold text-[#1a2e1a]" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[#1a2e1a] font-bold text-sm">Living Rooms</Label>
+                <Input type="number" min={0} value={livingRooms} onChange={(e) => setLivingRooms(Math.max(0, Number(e.target.value)))} className="bg-slate-50 border-slate-200 h-11 rounded-xl font-semibold text-[#1a2e1a]" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[#1a2e1a] font-bold text-sm">Kitchen</Label>
+                <div className="h-11 rounded-xl bg-slate-50 border border-slate-200 px-4 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-[#1a2e1a]">Include</span>
+                  <Switch checked={includeKitchen} onCheckedChange={setIncludeKitchen} />
+                </div>
               </div>
             </div>
-            <Switch 
-              checked={emergency} 
-              onCheckedChange={setEmergency} 
-              className="data-[state=checked]:bg-amber-500"
-            />
           </div>
 
-          <div className="relative z-10 rounded-2xl bg-[#1a2e1a] text-white p-5 border border-[#97BC62]/20">
-            <p className="text-[11px] font-black uppercase tracking-widest text-[#97BC62]">Estimated Cost Preview</p>
-            {hasArea ? (
-              <>
-                <p className="mt-2 text-3xl font-display font-bold">₹{estimatePreview.toLocaleString("en-IN")}</p>
-                <p className="mt-1 text-xs text-white/60">Based on area, selected variant, and room configuration.</p>
-              </>
-            ) : (
-              <p className="mt-2 text-sm text-white/50">Enter your area above to see an instant price estimate.</p>
-            )}
-          </div>
+          {/* Date & Address */}
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#1a2e1a]/40">Schedule</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-[#1a2e1a] font-bold text-sm flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> Preferred Date</Label>
+                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} min={new Date().toISOString().split("T")[0]} className="bg-slate-50 border-slate-200 h-11 rounded-xl font-semibold text-[#1a2e1a]" />
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[#1a2e1a] font-bold text-sm flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> Service Address</Label>
+                  <Button variant="ghost" size="sm" type="button" onClick={() => fetchLocation()} disabled={isFetchingLocation} className="h-7 text-[10px] font-black text-[#97BC62] hover:text-[#1a2e1a]">
+                    {isFetchingLocation ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null} Detect
+                  </Button>
+                </div>
+                <Input placeholder="Where should we clean?" value={address} onChange={(e) => setAddress(e.target.value)} className="bg-slate-50 border-slate-200 h-11 rounded-xl font-semibold text-[#1a2e1a]" />
+              </div>
+            </div>
 
-          <Button 
-            onClick={handleBook} 
-            className="w-full h-14 gap-3 bg-[#1a2e1a] hover:bg-[#2C5F2D] text-white font-black text-lg rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50" 
-            disabled={isLoading}
-          >
-            {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle className="h-5 w-5 text-[#97BC62]" />}
-            {isLoading ? "PROCESSING..." : "PROCEED TO PAYMENT"}
-          </Button>
+            {/* Emergency Toggle */}
+            <div className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${emergency ? "border-amber-400 bg-amber-50" : "border-slate-100 bg-slate-50"}`}>
+              <div className="flex items-center gap-3">
+                <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${emergency ? "bg-amber-400 text-white" : "bg-white text-slate-300"}`}>
+                  <Zap className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className={`text-sm font-black ${emergency ? "text-amber-800" : "text-[#1a2e1a]"}`}>Emergency Priority</p>
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">Instant scheduling for urgent needs</p>
+                </div>
+              </div>
+              <Switch checked={emergency} onCheckedChange={setEmergency} className="data-[state=checked]:bg-amber-500" />
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT: Summary Sidebar */}
+        <div className="space-y-4">
+          {/* Cost Estimate */}
+          <div className="bg-[#1a2e1a] rounded-2xl p-6 text-white sticky top-6">
+            <p className="text-[10px] font-black uppercase tracking-widest text-[#97BC62] mb-4">Booking Summary</p>
+            <div className="space-y-3 text-sm mb-6">
+              <div className="flex justify-between">
+                <span className="text-white/50">Agent</span>
+                <span className="font-bold">{selectedAgent.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/50">Service</span>
+                <span className="font-bold">{category || "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/50">Intensity</span>
+                <span className="font-bold">{variant || "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-white/50">Date</span>
+                <span className="font-bold">{date || "—"}</span>
+              </div>
+              {emergency && (
+                <div className="flex items-center gap-2 bg-amber-500/20 rounded-lg p-2">
+                  <Zap className="h-3.5 w-3.5 text-amber-400" />
+                  <span className="text-amber-300 text-xs font-bold">Emergency Priority</span>
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-white/10 pt-4 mb-5">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#97BC62] mb-2">Estimated Cost</p>
+              {hasArea ? (
+                <p className="text-4xl font-display font-black">₹{estimatePreview.toLocaleString("en-IN")}</p>
+              ) : (
+                <p className="text-white/40 text-sm">Enter area above for an estimate</p>
+              )}
+            </div>
+
+            <Button
+              onClick={handleBook}
+              disabled={isLoading}
+              className="w-full h-13 bg-[#97BC62] hover:bg-[#8aad55] text-[#1a2e1a] font-black text-base rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50"
+            >
+              {isLoading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <CheckCircle className="h-5 w-5 mr-2" />}
+              {isLoading ? "Processing…" : "Confirm Booking"}
+            </Button>
+            <p className="text-center text-xs text-white/30 mt-3 font-medium">You'll be redirected to payment</p>
+          </div>
         </div>
       </div>
     </div>

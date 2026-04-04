@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { customerAPI } from "@/lib/api";
 import { AgentProfileDetails, AgentReview } from "@/types";
+import { useNavigate } from "react-router-dom";
 
 interface AgentProfileModalProps {
   agentId: string | null;
@@ -16,6 +17,20 @@ export function AgentProfileModal({ agentId, open, onClose }: AgentProfileModalP
   const [reviews, setReviews] = useState<AgentReview[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const navigate = useNavigate();
+
+  const handleSelectAgent = () => {
+    if (profile) {
+      localStorage.setItem('cleanmate_selected_agent', JSON.stringify({
+        id: agentId,
+        name: profile.name,
+        avatar: profile.avatar,
+        rating: profile.rating
+      }));
+      onClose();
+      navigate("/customer/book");
+    }
+  };
 
   useEffect(() => {
     if (agentId && open) {
@@ -105,6 +120,15 @@ export function AgentProfileModal({ agentId, open, onClose }: AgentProfileModalP
                         {profile.available ? "Available" : "Busy"}
                       </span>
                     </div>
+                  </div>
+                  <div className="ml-auto">
+                    <Button 
+                      className="bg-[#1a2e1a] hover:bg-[#2C5F2D] text-white font-bold rounded-xl shadow-lg"
+                      disabled={!profile.available}
+                      onClick={handleSelectAgent}
+                    >
+                      Book Agent
+                    </Button>
                   </div>
                 </div>
               </DialogHeader>
